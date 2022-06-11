@@ -6,11 +6,16 @@ i = 1
 class MultiAgent():
     def __init__(self, board_size=11):
         self.board_size = board_size
+        
     
     # ---------------------------------------------------------------------------- #
     #                                 find the path                                #
     # ---------------------------------------------------------------------------- #
 
+    def getTwoDimState(self, state):
+        state_2d = np.reshape(state,(-1,self.board_size))
+        return state_2d
+    
     # count heuristic value
     def getHeuristicScore(self):
         # if the connection established 
@@ -26,17 +31,19 @@ class MultiAgent():
             winner = 0
         return AgentScore_1 - AgentScore_2, winner
 
-    def getShortestPath(self, state, agentIndex):
+    def getShortestPath(self, state_2d, agentIndex):
         """
         input : state
         output : a list with path data (0.1.2)
         """
         # find one on the map
         # check if done
-        if(agentIndex == 1):
-            for i in state:
-                if(i == 0):
-                    return 0
+        # add boundaries
+        node = []
+        for i in range(self.board_size):
+            for j in range(self.board_size):
+                if(state[i][j] == agentIndex):
+                    print(state_2d[i][j])
         return 0
 
     def getPathScore(self, path, agentIndex):
@@ -75,7 +82,7 @@ class MultiAgent():
         def mini_value(state, depth=0, agentIndex=2):
             global i
             i+=1
-            print("mini")
+            # print("mini")
             miniEval = float('inf')
             for action, val in enumerate(state):
                 if(val == 0): # the position is empty
@@ -83,19 +90,19 @@ class MultiAgent():
                     v = max_value(child, depth+1, 1)
                     miniEval = min(v, miniEval)
                     
-            print("mini", miniEval)
+            # print("mini", miniEval)
             return miniEval
         def max_value(state, depth=0, agentIndex=1):
             global i
             i+=1
-            print("max")
+            # print("max")
             maxEval = -float('inf')
             for action, val in enumerate(state):
                 if(val == 0):
                     child = self.getNextState(state, action, 1)
                     v = mini_value(child, depth+1, 2)
                     maxEval = max(v, maxEval)
-            print("max",maxEval)
+            # print("max",maxEval)
             return maxEval
 
 
@@ -164,6 +171,12 @@ if env.is_done(state):
     print("done")
 # print(state)
 method = MultiAgent()
+print("state_2d")
+state_2d = method.getTwoDimState(state)
+print(state_2d)
+print("path")
+path = method.getShortestPath(state_2d,0)
+print(path)
 action = method.getMiniMaxAction(state)
 print(action)
 

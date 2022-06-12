@@ -1,129 +1,156 @@
 import os
 from  Hex import Hex
 import numpy as np
+import networkx as nx
 
-i = 1
 class MultiAgent():
-    def __init__(self, board_size=11):
+    def __init__(self, board_size=11, depth=2):
         self.board_size = board_size
-    
+        self.depth = depth
+        self.winner = 0
+
+    def init_graph(self, agentIndex):
+        G = nx.Graph()
+        # add node
+        G.add_nodes_from(list(range(self.board_size * self.board_size)))
+        G.add_nodes_from([1000, 1001])
+        # add edges
+        for i in range(self.board_size):
+            for j in range(self.board_size):
+                current = i * self.board_size + j
+                if (j < self.board_size - 1):
+                    G.add_edge(current, current + 1)
+                if (i < self.board_size - 1):
+                    G.add_edge(current, current + self.board_size)
+                if (i < self.board_size - 1 and j > 0):
+                    G.add_edge(current, current + self.board_size - 1)
+        #  border edge
+        if agentIndex == -1:
+            for j in range(self.board_size):
+                G.add_edge(1000, j)
+                G.add_edge(1001, j + self.board_size * (self.board_size - 1))
+        elif agentIndex == 1:
+            for i in range(0, self.board_size * (self.board_size - 1) + 1, self.board_size):
+                G.add_edge(1000, i)
+                G.add_edge(1001, i + self.board_size - 1)
+        return G
     # ---------------------------------------------------------------------------- #
     #                                 find the path                                #
     # ---------------------------------------------------------------------------- #
 
     # count heuristic value
-    def getHeuristicScore(self):
+    def getHeuristicScore(self, state):
         # if the connection established 
-        Agent_1 = self.getShortestPath(1)
-        Agent_2 = self.getShortestPath(2)
-        AgentScore_1 = self.getPathScore(Agent_1)
-        AgentScore_2 = self.getPathScore(Agent_2) 
-        if(AgentScore_1 == 0):
-            winner = 1
-        elif(AgentScore_2 == 0):
-            winner = 2 
+        G1 = self.state2graph(state, 1)
+        G2 = self.state2graph(state, -1)
+        agent_len1 = self.getShortestPathLength(G1) - 1
+        agent_len2 = self.getShortestPathLength(G2) - 1
+        if(agent_len1 == 0):
+            self.winner = 1
+        elif(agent_len2 == 0):
+            self.winner = -1
         else:
-            winner = 0
-        return AgentScore_1 - AgentScore_2, winner
+            self.winner = 0
+        return agent_len1 * 1.2 - agent_len2
 
-    def getShortestPath(self, state, agentIndex):
-        """
-        input : state
-        output : a list with path data (0.1.2)
-        """
-        # find one on the map
-        # check if done
-        if(agentIndex == 1):
-            for i in state:
-                if(i == 0):
-                    return 0
-        return 0
+    def state2graph(self, state, agentIndex):
+        G = self.init_graph(agentIndex)
+        for i in range(self.board_size * self.board_size):
+            if (state[i] == agentIndex):
+                adj_list = G.adj[i].items()
+                for nbr, datadict in adj_list:
+                    for other_nbr, other_datadict in adj_list:
+                        if nbr == other_nbr or nbr == i or other_nbr == i:
+                            continue
+                        else:
+                            G.add_edge(nbr, other_nbr)
+            if (state[i] != 0):
+                G.remove_node(i)
+        return G
 
-    def getPathScore(self, path, agentIndex):
-        ExpectedSteps = 0
-        for node in path:
-            if(node == agentIndex):
-                ExpectedSteps = ExpectedSteps + 1
-        return ExpectedSteps
+    # Return shortest path length. If path no exist, return -1.
+    def getShortestPathLength(self, G):
+        if nx.has_path(G, 1000, 1001):
+            spl = nx.shortest_path_length(G, 1000, 1001)
+            return spl
+        else:
+            return -1
 
-    def getNeighborPos(self, pos):
-        up = pos - self.board_size
-        down = pos + self.board_size
-        right = pos + 1
-        left = pos - 1
-        upleft = pos - self.board_size -1 
-        downright = pos + self.board_size +1
-        # check boundary
-        positions = [up, down, right, left, upleft, downright]
-         
     # ---------------------------------------------------------------------------- #
     #                               minimax algorithm                              #
     # ---------------------------------------------------------------------------- #
     def getNextState(self, state, action, agentIndex):
-        if(agentIndex == 1):
-            state[action] = 1
-        elif(agentIndex == 2):
-            state[action] = 2
+        if agentIndex:
+            next_state = []
+            for item in state:
+                next_state.append(item)
+            next_state[action] = agentIndex
         else:
             print("not a player")
-        return state
+        # print("new state evaluated")
+        return next_state
 
     def getMiniMaxAction(self, state):
         """
         return a postion that I should put
         """ 
-        def mini_value(state, depth=0, agentIndex=2):
-            global i
-            i+=1
-            print("mini")
+        def mini_value(state, depth):
+            # print("mini")
+            Done = False
+            if (depth == self.depth):
+                Done = True
+            if (self.winner != 0):
+                Done = True
+            if (Done): 
+                heuristicScore = self.getHeuristicScore(state)
+                print(heuristicScore)
+                return heuristicScore
+
             miniEval = float('inf')
-            for action, val in enumerate(state):
-                if(val == 0): # the position is empty
-                    child = self.getNextState(state, action, 2)
-                    v = max_value(child, depth+1, 1)
-                    miniEval = min(v, miniEval)
-                    
-            print("mini", miniEval)
-            return miniEval
-        def max_value(state, depth=0, agentIndex=1):
-            global i
-            i+=1
-            print("max")
-            maxEval = -float('inf')
-            for action, val in enumerate(state):
-                if(val == 0):
+            for action, v in enumerate(state):
+                if (v == 0): # this position is empty
                     child = self.getNextState(state, action, 1)
-                    v = mini_value(child, depth+1, 2)
+                    val = max_value(child, depth + 1)
+                    miniEval = min(val, miniEval)
+            return miniEval
+        def max_value(state, depth):
+            # print("max")
+            Done = False
+            if (depth == self.depth):
+                Done = True
+            if (self.winner != 0):
+                Done = True
+            if (Done): 
+                heuristicScore = self.getHeuristicScore(state)
+                print(heuristicScore)
+                return heuristicScore
+
+            maxEval = -float('inf')
+            for action, v in enumerate(state):
+                if(v == 0):
+                    child = self.getNextState(state, action, -1)
+                    v = mini_value(child, depth + 1)
                     maxEval = max(v, maxEval)
-            print("max",maxEval)
             return maxEval
 
+        # StateVal = self.getHeuristicScore(state)
+        # if (StateVal == 0 and self.winner == 0):
+        #     bestAction = 50
+        #     # child = self.getNextState(state, bestAction, 1)
+        #     return bestAction
 
-        min_val = mini_value(state)
-        print(min_val)
-        print(i)
-        # bestAction = min_val
-        # maxValue = -float('inf')
-        # i = 2
-        # bestAction = 0
-        # # randint = np.random.randint(120)
-        # # for action, val in enumerate(state):
-        #     # print(action, val)
-        #     # agentIdx = (i + 1) % 2
-        # agentIdx = 0
-        # child = self.getNextState(state, 0, 2)
-        # print(child)
-        # v = mini_value(child, 0, agentIdx)
-        # if v > maxValue:
-        #     maxValue = v
-        #     bestAction = action
-
-        # yes
-        # a = self.getNextState(state, 1, 2) 
-        # print(a)
-        bestAction = 2 
+        # from the top starting to travel
+        maxValue = -float('inf')
+        for action, v in enumerate(state):
+            if v == 0:
+                child = self.getNextState(state, action, -1)
+                v = mini_value(child, 1)
+                # print(action, v)
+                if v > maxValue:
+                    bestAction = action
+                    maxValue = v
         return bestAction
-
+        
     # def getAlphaBetaAction(self, state):
     #     #  AgentIndex == 2 : rival
     #     def mini_value(state, depth=0, agentIndex=2, alpha=-float('inf'), beta=float('inf')):
@@ -132,11 +159,15 @@ class MultiAgent():
     #         for action, val in enumerate(state):
     #             if(val == 0): # the position is empty
     #                 child = self.getNextState(state, action, 2)
-    #                 v = max_value(child, depth+1, 1)
-    #                 miniEval = min(v, miniEval)
+    #                 v = max_value(child, depth+1, 1)[0]
+    #                 if v < miniEval:
+    #                     miniEval = v
+    #                     bestAction = action
+    #                 if v < alpha :
+    #                     return v, action
                     
     #         # print("mini", miniEval)
-    #         return miniEval
+    #         return miniEval, bestAction
     #     # AgentIndex == 1 : user
     #     def max_value(state, depth=0, agentIndex=1, alpha=-float('inf'), beta=float('inf')):
     #         # print("max")
@@ -144,41 +175,35 @@ class MultiAgent():
     #         for action, val in enumerate(state):
     #             if(val == 0):
     #                 child = self.getNextState(state, action, 1)
-    #                 v = mini_value(child, depth+1, 2)
-    #                 maxEval = max(v, maxEval)
+    #                 v = mini_value(child, depth+1, 2)[0]
+    #                 if b < maxEval:
+    #                     maxEval = action
+    #                     bestAction = action
+    #                 if v > beta:
+    #                     return v, bestAction
     #         # print("max",maxEval)
-    #         return maxEval
+    #         return maxEval, bestAction
+
 
     #     min_val = mini_value(state)
     #     print(min_val)
     #     bestAction = 0
     #     return bestAction
         
-
-
 # check value
-env = Hex()
-state = env.reset()
-# check if the state is done need to do it outside
-if env.is_done(state):
-    print("done")
-# print(state)
-method = MultiAgent()
-action = method.getMiniMaxAction(state)
-print(action)
+# env = Hex()
+# state = env.reset()
+# # check if the state is done need to do it outside
+# if env.is_done(state):
+#     print("done")
+# # print(state)
+# method = MultiAgent()
 
-# while True:
-    # print(state)
-    # state[20]=1
-    # print(state)
+# action = method.getMiniMaxAction(state)
+# print(action)
 
-    # action = method.getAction(state)
+# for i in range(0, 89, 11):
+#     state[i] = 1
 
-    # print(action)
-
-    # a = method.getNextState(state, 1, 1)
-
-# class AlphaBetaAgent():
-#     def getAction(self, state):
-    
-
+# action = method.getMiniMaxAction(state)
+# print(action)

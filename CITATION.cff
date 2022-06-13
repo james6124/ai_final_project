@@ -1,0 +1,20 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: 2022-AI Final project
+message: Please cite this software using these metadata.
+type: software
+authors:
+  - given-names: 'Hung-Jun, Qiu'
+    name-particle: Hung-Jun
+    family-names: Qui
+    email: james61124@gmail.com
+  - given-names: 'Nian Rong, Wu'
+    name-particle: Nian-Rong
+    family-names: Wu
+    email: vivianwu203@gmail.com
+  - given-names: 'Yu-Chun, Chen'
+    name-particle: Yu-Chun
+    family-names: Chen
+    email: shflte1314527@gmail.com
